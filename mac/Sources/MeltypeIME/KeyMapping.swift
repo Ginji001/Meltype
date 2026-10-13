@@ -47,4 +47,30 @@ enum KeyMapping {
             return scalar.value >= 0x20 ? otherCharacterKey : nil
         }
     }
+
+    /// 変換中 (下線の文字があるとき) の Control + キーを、macOS 標準の日本語入力と同じ働きのキーに読み替える。
+    /// Apple のサポート「Macで日本語の変換に使うキーボードショートカット」(macOS 27) と、Cocoa の文字編集
+    /// (Emacs 風) の Control キーに合わせる。返す値は (Windows の仮想キー, Shift を付けるか)。対象外なら nil。
+    static func macControlShortcut(for event: NSEvent) -> (vk: Int32, shift: Bool)? {
+        let flags = event.modifierFlags.intersection([.control, .option, .command])
+        guard flags == .control, let key = event.charactersIgnoringModifiers?.lowercased() else { return nil }
+        switch key {
+        case "j": return (0x75, false)        // ひらがな (F6)
+        case "k": return (0x76, false)        // カタカナ (F7)
+        case ";": return (0x77, false)        // 半角カタカナ (F8)
+        case "l": return (0x78, false)        // 全角英字 (F9)
+        case ":", "'": return (0x79, false)   // 半角英字 (F10、US 配列は Control-')
+        case "h": return (0x08, false)        // 1 文字消す
+        case "d": return (0x2E, false)        // 後ろの 1 文字を消す
+        case "n": return (0x28, false)        // 次の候補
+        case "p": return (0x26, false)        // 前の候補
+        case "b": return (0x25, false)        // ← (前の文節・左へ)
+        case "f": return (0x27, false)        // → (次の文節・右へ)
+        case "a": return (0x24, false)        // 先頭へ
+        case "e": return (0x23, false)        // 末尾へ
+        case "o", "w": return (0x27, true)    // 文節を伸ばす
+        case "i": return (0x25, true)         // 文節を縮める
+        default: return nil
+        }
+    }
 }

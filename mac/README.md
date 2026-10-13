@@ -92,6 +92,12 @@ cd mac
 | <kbd>Esc</kbd> | 取り消し |
 | <kbd>F6</kbd> / <kbd>F7</kbd> / <kbd>F8</kbd> | ひらがな / カタカナ / 半角カタカナ |
 | <kbd>F9</kbd> / <kbd>F10</kbd> | 全角英数 / 半角英数 |
+| <kbd>⌃J</kbd> / <kbd>⌃K</kbd> / <kbd>⌃;</kbd> | 変換中: ひらがな / カタカナ / 半角カタカナ (macOS 標準の日本語入力と同じ) |
+| <kbd>⌃L</kbd> / <kbd>⌃:</kbd> (US 配列は <kbd>⌃'</kbd>) | 変換中: 全角英字 / 半角英字 |
+| <kbd>⌃H</kbd> / <kbd>⌃D</kbd> | 変換中: 前 / 後ろの 1 文字を消す |
+| <kbd>⌃N</kbd> / <kbd>⌃P</kbd> | 変換中: 次 / 前の候補 |
+| <kbd>⌃B</kbd> / <kbd>⌃F</kbd>、<kbd>⌃A</kbd> / <kbd>⌃E</kbd> | 変換中: 左右 (文節を選ぶ)、先頭 / 末尾 |
+| <kbd>⌃O</kbd> (<kbd>⌃W</kbd>) / <kbd>⌃I</kbd> | 変換中: 文節を伸ばす / 縮める |
 | <kbd>英数</kbd> / <kbd>かな</kbd> | JIS キーボードで、英数 (直接入力) / 日本語に戻る |
 
 - 先頭か空白の直後に打った `/review`・`$skill`・`@ファイル名` は、空白まで変換せずにそのまま入ります (`SigilWordsDirect` で OFF)
