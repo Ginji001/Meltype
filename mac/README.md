@@ -96,6 +96,7 @@ cd mac
 
 - 先頭か空白の直後に打った `/review`・`$skill`・`@ファイル名` は、空白まで変換せずにそのまま入ります (`SigilWordsDirect` で OFF)
 - 設定・学習データ・ユーザー辞書は `~/Library/Application Support/Meltype` (入力メニューの「Meltype のデータフォルダを開く」)。設定は Windows 版と同じ `config.json` です (自動判定の強さ `DetectionLevel` など)
+- 確定した変換を覚えて、次から先に出します (macOS 標準の日本語入力と同じ。`LearningEnabled` を OFF にすると新しく覚えません)
 
 <a name="ユーザー辞書"></a>
 <img src="../docs/images/headings/mac/s02.svg" alt="ユーザー辞書" height="40">

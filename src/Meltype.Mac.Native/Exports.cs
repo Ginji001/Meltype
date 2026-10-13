@@ -29,6 +29,17 @@ public static unsafe class Exports
     /// <summary>小文字の英単語 → 英語として正しい綴りなら 1。</summary>
     private static delegate* unmanaged<byte*, int> s_isWord;
 
+    /// <summary>確定した文節 (「読み\t文字列」を改行でつないだもの), 直前の文脈 or NULL → 変換エンジンに覚えさせる (Mac 版)。</summary>
+    private static delegate* unmanaged<byte*, byte*, void> s_learn;
+
+    /// <summary>確定した変換を変換エンジン (azooKey) に覚えさせる関数を登録する (macOS 標準の日本語入力と同じく、確定するたびに学習する)。</summary>
+    [UnmanagedCallersOnly(EntryPoint = "meltype_set_learn_callback")]
+    public static int SetLearnCallback(delegate* unmanaged<byte*, byte*, void> learn)
+    {
+        s_learn = learn;
+        return 1;
+    }
+
     /// <summary>Swift 側の関数を登録する (最初に 1 回)。</summary>
     [UnmanagedCallersOnly(EntryPoint = "meltype_init")]
     public static int Init(delegate* unmanaged<byte*, byte*, byte*> clauses, delegate* unmanaged<byte*, byte*> candidates, delegate* unmanaged<byte*, int> isWord)
@@ -221,8 +232,24 @@ public static unsafe class Exports
         return text is null ? [] : text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
     }
 
-    private sealed class CallbackConverter : IKanjiConverter
+    private sealed class CallbackConverter : IKanjiConverter, ILearningConverter
     {
+        public void Learn(string? context, IReadOnlyList<ConversionClause> clauses)
+        {
+            if (s_learn == null || clauses.Count == 0) return;
+            var input = ToUtf8(string.Join("\n", clauses.Select(c => $"{c.Reading}\t{c.Text}")), out var inputBuffer);
+            var contextPointer = context is null ? null : ToUtf8(context, out _);
+            try
+            {
+                s_learn(input, contextPointer);
+            }
+            finally
+            {
+                NativeMemory.Free(inputBuffer);
+                if (contextPointer != null) NativeMemory.Free(contextPointer);
+            }
+        }
+
         public string? Convert(string hiragana) =>
             ConvertClauses(hiragana) is { Count: > 0 } clauses ? string.Concat(clauses.Select(c => c.Text)) : null;
 

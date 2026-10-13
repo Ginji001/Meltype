@@ -34,7 +34,7 @@ final class MeltypeConverter {
     }
 
     private init() {
-        // azooKey の学習データ・ユーザー辞書の置き場所 (Meltype では学習しない設定にしているので、ほぼ使わない)。
+        // azooKey の学習データ・ユーザー辞書の置き場所。確定した変換を覚え、次から先に出す (macOS 標準の日本語入力と同じ)。
         let directory = (NativeCore.shared.dataDirectory.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("Meltype", isDirectory: true))
@@ -44,7 +44,7 @@ final class MeltypeConverter {
             requireJapanesePrediction: .disabled,
             requireEnglishPrediction: .disabled,
             keyboardLanguage: .ja_JP,
-            learningType: .nothing,
+            learningType: .inputAndOutput,
             memoryDirectoryURL: directory,
             sharedContainerURL: directory,
             textReplacer: TextReplacer(emojiDataProvider: { MeltypeConverter.emojiDictionary() }),
@@ -102,5 +102,27 @@ final class MeltypeConverter {
             if list.count >= 30 { break }
         }
         return list
+    }
+
+    /// 確定した文節を覚える。次に同じ読みを変換したとき、覚えた語・区切りを先に出す。
+    func learn(_ clauses: [(reading: String, text: String)]) {
+        let reading = clauses.map(\.reading).joined()
+        let text = clauses.map(\.text).joined()
+        var learned = false
+        if let whole = results(for: reading).first(where: { $0.text == text }) {
+            converter.updateLearningData(whole)
+            learned = true
+        } else {
+            for clause in clauses {
+                guard let match = results(for: clause.reading).first(where: { $0.text == clause.text }) else { continue }
+                converter.updateLearningData(match)
+                learned = true
+            }
+        }
+        guard learned else { return }
+        converter.commitUpdateLearningData()
+        // 覚えたので、前の変換結果は使わない。
+        resultCache.removeAll()
+        cacheOrder.removeAll()
     }
 }
