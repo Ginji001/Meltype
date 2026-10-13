@@ -8,6 +8,8 @@ import Foundation
 typealias ClausesCallback = @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 typealias CandidatesCallback = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 typealias IsWordCallback = @convention(c) (UnsafePointer<CChar>?) -> Int32
+typealias LearnCallback = @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> Void
+private typealias SetLearnFunction = @convention(c) (LearnCallback) -> Int32
 
 private typealias InitFunction = @convention(c) (ClausesCallback, CandidatesCallback, IsWordCallback) -> Int32
 private typealias CreateFunction = @convention(c) () -> UnsafeMutableRawPointer?
@@ -31,6 +33,17 @@ private let clausesCallback: ClausesCallback = { hiragana, context in
 }
 
 /// 読み → 候補を改行でつないだもの。
+/// 確定した文節を azooKey に覚えさせる (C# のスレッドから呼ばれるので、変換と同じメインスレッドで行う)。
+private let learnCallback: LearnCallback = { text, _ in
+    guard let text else { return }
+    let clauses: [(reading: String, text: String)] = String(cString: text).split(separator: "\n").compactMap { line in
+        let parts = line.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
+        return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
+    }
+    guard !clauses.isEmpty else { return }
+    DispatchQueue.main.async { MeltypeConverter.shared.learn(clauses) }
+}
+
 private let candidatesCallback: CandidatesCallback = { reading in
     guard let reading else { return nil }
     let candidates = MeltypeConverter.shared.candidates(for: String(cString: reading))
@@ -105,6 +118,7 @@ final class NativeCore {
     private let dataDirectoryFunction: DataDirectoryFunction?
     private let reportUrlFunction: ReportUrlFunction?
     private let freeFunction: FreeFunction?
+    private let setLearnFunction: SetLearnFunction?
 
     private init() {
         let path = (Bundle.main.privateFrameworksPath ?? "") + "/libMeltypeNative.dylib"
@@ -129,10 +143,12 @@ final class NativeCore {
         dataDirectoryFunction = symbol("meltype_data_directory", as: DataDirectoryFunction.self)
         reportUrlFunction = symbol("meltype_report_url", as: ReportUrlFunction.self)
         freeFunction = symbol("meltype_free", as: FreeFunction.self)
+        setLearnFunction = symbol("meltype_set_learn_callback", as: SetLearnFunction.self)
     }
 
     func initialize() {
         _ = initFunction?(clausesCallback, candidatesCallback, isWordCallback)
+        _ = setLearnFunction?(learnCallback)
     }
 
     func createSession() -> UnsafeMutableRawPointer? { createFunction?() }
