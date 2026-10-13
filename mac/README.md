@@ -95,6 +95,8 @@ cd mac
 | <kbd>英数</kbd> / <kbd>かな</kbd> | JIS キーボードで、英数 (直接入力) / 日本語に戻る |
 
 - 先頭か空白の直後に打った `/review`・`$skill`・`@ファイル名` は、空白まで変換せずにそのまま入ります (`SigilWordsDirect` で OFF)
+- 入力メニューの「Meltype の設定…」で、自動判定の強さ・ライブ変換・Tab で変換・句読点・学習などを変えられます (すぐ反映。macOS の「キーボード設定を開く…」とは別)
+- 定型文: `;名前` と打って <kbd>Space</kbd> か <kbd>Tab</kbd> で、登録した文に置き換えます。直後の <kbd>Esc</kbd> で `;名前` に戻します。入力メニューの「定型文…」で登録します (Windows 版と同じ `snippets.json`)
 - 設定・学習データ・ユーザー辞書は `~/Library/Application Support/Meltype` (入力メニューの「Meltype のデータフォルダを開く」)。設定は Windows 版と同じ `config.json` です (自動判定の強さ `DetectionLevel` など)
 
 <a name="ユーザー辞書"></a>
@@ -115,7 +117,7 @@ Mac 版には登録の画面がないので、データフォルダ (`~/Library/
 <a name="windows-版との違い"></a>
 <img src="../docs/images/headings/mac/s03.svg" alt="Windows 版との違い (今のところ)" height="40">
 
-- 設定画面・トレイ・ユーザー辞書の画面はありません (`config.json`・`userdict.txt` を直接編集。[ユーザー辞書](#ユーザー辞書))
+- トレイ・ユーザー辞書の画面はありません (設定は入力メニューの「Meltype の設定…」。ユーザー辞書は `userdict.txt` を直接編集。[ユーザー辞書](#ユーザー辞書))
 - VS Code などのアプリの種類 (コード / 一般) の判定は、まだ Mac では使っていません
 - 英数状態でローマ字を検知して日本語に戻す機能は、まだありません
 

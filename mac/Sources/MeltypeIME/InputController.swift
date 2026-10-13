@@ -74,6 +74,11 @@ final class MeltypeInputController: IMKInputController {
             break
         }
 
+        // 定型文: 先頭か空白の直後の ;名前 + Space / Tab (#290)。
+        if !hasMarkedText, !directInput, let handled = handleSnippet(event, client: client) {
+            return handled
+        }
+
         guard let vk = KeyMapping.virtualKey(for: event) else { return false }
         // event.characters は「見た目の 1 文字」で、UTF-16 要素が複数のことがある
         // (補助面の文字・結合文字・ZWJ 絵文字・異体字セレクター)。1 要素へ切り詰めたり 0 に置き換えたりしない。
@@ -161,6 +166,11 @@ final class MeltypeInputController: IMKInputController {
             item.state = selected ? .on : .off
         }
         menu.addItem(.separator())
+        let settingsItem = menu.addItem(withTitle: "Meltype の設定…", action: #selector(openSettings(_:)), keyEquivalent: "")
+        settingsItem.target = self
+        let snippetItem = menu.addItem(withTitle: "定型文…", action: #selector(openSnippets(_:)), keyEquivalent: "")
+        snippetItem.target = self
+        menu.addItem(.separator())
         let importItem = menu.addItem(withTitle: "macOSのユーザー辞書を取り込む…", action: #selector(importUserDictionary(_:)), keyEquivalent: "")
         importItem.target = self
         menu.addItem(withTitle: "Meltype のデータフォルダを開く (設定・ユーザー辞書)", action: #selector(openDataFolder(_:)), keyEquivalent: "")
@@ -174,6 +184,46 @@ final class MeltypeInputController: IMKInputController {
         codeInput = code
         NativeCore.shared.setDirect(session, direct)
         NativeCore.shared.setCodeInput(session, code)
+    }
+
+    // ---- 定型文 ----
+
+    /// 直前に入れた定型文 (すぐに Esc を押したら、打った ;名前 に戻す)。
+    private var lastSnippet: (text: String, typed: String)?
+
+    /// 処理したら true / false (アプリに渡す)、関係なければ nil。
+    private func handleSnippet(_ event: NSEvent, client: IMKTextInput) -> Bool? {
+        let undo = lastSnippet
+        lastSnippet = nil
+        guard event.modifierFlags.intersection([.control, .option, .command]).isEmpty,
+              let (mark, items) = MacSnippets.current() else { return nil }
+        let keyCode = Int(event.keyCode)
+        if keyCode == kVK_Escape, let undo {
+            return replaceBeforeCaret(length: (undo.text as NSString).length, with: undo.typed, client: client) ? true : nil
+        }
+        // 文書の先頭では、キャレットの前を尋ねても nil が返るアプリがある (TextEdit など)。そのときは空とみなす。
+        let (rawBefore, _) = surroundingText(of: client)
+        let before = rawBefore ?? (client.selectedRange().location == 0 ? "" : nil)
+        if keyCode == kVK_Space || keyCode == kVK_Tab {
+            guard !event.modifierFlags.contains(.shift),
+                  let name = MacSnippets.trigger(before: before, mark: mark), let text = items[name] else { return nil }
+            let typed = String(mark) + name
+            guard replaceBeforeCaret(length: (typed as NSString).length, with: text, client: client) else { return nil }
+            lastSnippet = (text, typed)
+            return true
+        }
+        // 記号と名前は、打つたびにそのままアプリへ渡す (Space / Tab まで変換しない)。
+        guard let characters = event.characters, characters.count == 1, let c = characters.first, let before else { return nil }
+        if c == mark, before.last.map({ $0.isWhitespace }) ?? true { return false }
+        if MacSnippets.isNameChar(c), MacSnippets.trigger(before: before, mark: mark) != nil { return false }
+        return nil
+    }
+
+    private func replaceBeforeCaret(length: Int, with text: String, client: IMKTextInput) -> Bool {
+        let selection = client.selectedRange()
+        guard selection.location != NSNotFound, selection.location >= length else { return false }
+        client.insertText(NSAttributedString(string: text), replacementRange: NSRange(location: selection.location - length, length: length))
+        return true
     }
 
     @objc private func selectAutomatic(_ sender: Any?) { selectMode(direct: false, code: false) }
@@ -198,6 +248,16 @@ final class MeltypeInputController: IMKInputController {
             alert.informativeText = error.localizedDescription
         }
         alert.runModal()
+    }
+
+    @objc private func openSettings(_ sender: Any?) {
+        commitComposition(client())
+        SettingsWindowController.shared.show(tab: 0)
+    }
+
+    @objc private func openSnippets(_ sender: Any?) {
+        commitComposition(client())
+        SettingsWindowController.shared.show(tab: 1)
     }
 
     @objc private func openReport(_ sender: Any?) {
