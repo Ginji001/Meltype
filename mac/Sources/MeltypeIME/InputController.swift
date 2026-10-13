@@ -74,6 +74,15 @@ final class MeltypeInputController: IMKInputController {
             break
         }
 
+        // 変換中の Control+J/K/L/;/: (かな・英字の切り替え) や Control+H・N・P・B・F などを、
+        // macOS 標準の日本語入力と同じ働きにする。
+        if hasMarkedText, !directInput, let shortcut = KeyMapping.macControlShortcut(for: event) {
+            guard let result = NativeCore.shared.handleKey(session, vk: shortcut.vk, character: 0,
+                                                           modifiers: shortcut.shift ? 1 : 0, before: nil, after: nil) else { return true }
+            apply(result, to: client)
+            return result.consumed
+        }
+
         guard let vk = KeyMapping.virtualKey(for: event) else { return false }
         // event.characters は「見た目の 1 文字」で、UTF-16 要素が複数のことがある
         // (補助面の文字・結合文字・ZWJ 絵文字・異体字セレクター)。1 要素へ切り詰めたり 0 に置き換えたりしない。
