@@ -10,20 +10,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
 
     private struct Toggle { let key: String; let title: String; let note: String; let defaultValue: Bool }
 
-    /// Mac 版で効く項目だけ (Windows の Keyboard モード・トレイ専用の項目は出さない)。
+    /// よく変える項目だけ。ほかの項目は config.json で変えられる (ここに無い項目は今の値のまま残す)。
     private let toggles: [Toggle] = [
-        Toggle(key: "LiveConversion", title: "ライブ変換", note: "Space を押さなくても、打ったそばから漢字に変換して表示します。", defaultValue: true),
-        Toggle(key: "TabConversion", title: "Tab で変換", note: "入力中に Tab を押しても変換を始めます。変換中は Tab / Shift+Tab で候補を選びます。", defaultValue: true),
-        Toggle(key: "ContinueAfterConversion", title: "変換したあとに続けて打っても確定しない", note: "Space で変換したあと続けて打っても、変換した部分を確定せずに残します。", defaultValue: false),
-        Toggle(key: "AutoCorrectAfterCommit", title: "確定後も文脈に合わせて直す", note: "英語とも日本語とも読める語を、次の語で判定がはっきりしたら確定し直します。", defaultValue: true),
-        Toggle(key: "JapanesePunctuationAfterEnglish", title: "英字の後ろの , . も句読点にする", note: "IME. → IME。 キャレットの前が英語のときと tetr.io のような語は半角のまま。", defaultValue: false),
-        Toggle(key: "SpaceAroundEnglish", title: "英単語の前後に半角スペース", note: "今日はGitHubにpush → 今日は GitHub に push", defaultValue: false),
-        Toggle(key: "SigilWordsDirect", title: "/ $ @ で始まる語はそのまま入力", note: "先頭か空白の直後の /command・$skill・@ファイル名 は、空白まで変換しません。", defaultValue: true),
-        Toggle(key: "TranslationCandidates", title: "英訳の候補", note: "変換の候補の後ろに英訳も出します (複雑な → complex)。", defaultValue: true),
-        Toggle(key: "ShowCandidateMeanings", title: "候補の意味を表示", note: "同じ候補で少し止まると、候補の一覧に意味を出します。", defaultValue: true),
-        Toggle(key: "CorrectTypos", title: "打ち間違いを直す", note: "onegaishimsu → お願いします、teh → the", defaultValue: true),
-        Toggle(key: "SlashAsMiddleDot", title: "/ キーで中黒「・」", note: "かなの後ろの / を「・」にします。", defaultValue: false),
-        Toggle(key: "LearningEnabled", title: "ユーザー学習を使う", note: "選んだ候補・判定を覚えて、次から先に出します。", defaultValue: true),
+        Toggle(key: "LiveConversion", title: "ライブ変換", note: "打ったそばから漢字に変換して表示します。", defaultValue: true),
+        Toggle(key: "ContinueAfterConversion", title: "変換したあとに続けて打っても確定しない", note: "ON にすると、英文の途中の to などが日本語になりやすくなります。", defaultValue: false),
+        Toggle(key: "LearningEnabled", title: "変換を学習する", note: "選んだ候補を覚えて、次から先に出します。", defaultValue: true),
     ]
     private let levels: [(String, String)] = [("Aggressive", "積極的"), ("Balanced", "標準"), ("Conservative", "慎重"), ("Manual", "手動 (提案のみ)")]
     private let punctuations: [(String, String)] = [("Japanese", "、。"), ("FullWidthCommaPeriod", "，．"), ("FullWidthCommaKuten", "，。"), ("ToutenFullWidthPeriod", "、．")]
@@ -40,7 +31,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     private let textView = NSTextView()
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 560),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 430),
                               styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "Meltype の設定"
         window.isReleasedWhenClosed = false
@@ -121,7 +112,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
             checkboxes[toggle.key] = box
             stack.addArrangedSubview(box)
             let note = label(toggle.note, small: true)
-            note.preferredMaxLayoutWidth = 480
+            note.preferredMaxLayoutWidth = 440
             let indent = NSView()
             indent.widthAnchor.constraint(equalToConstant: 18).isActive = true
             let noteRow = NSStackView(views: [indent, note])
