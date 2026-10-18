@@ -14,7 +14,9 @@ final class MeltypeConverter {
     // ビルドしたマシンのフォルダーしか見ない。辞書のバンドルは Contents/Resources に入れているので、見つからずに落ちていた (#26)。
     // (Meltype.app の直下には置けない: 署名が通らない)。なので、辞書の場所をこちらで渡す。
     private let converter = KanaKanjiConverter(dicdataStore: DicdataStore(dictionaryURL: MeltypeConverter.resource("Dictionary")))
-    private let options: ConvertRequestOptions
+    private var options: ConvertRequestOptions
+    /// Zenzai (ニューラルかな漢字変換) のモデル。無ければ Zenzai を使わない。
+    private let zenzModel: URL?
     private var resultCache: [String: [Candidate]] = [:]
     private var cacheOrder: [String] = []
 
@@ -32,6 +34,23 @@ final class MeltypeConverter {
         if #available(macOS 14.4, *) { return directory.appendingPathComponent("emoji_all_E15.1.txt", isDirectory: false) }
         return directory.appendingPathComponent("emoji_all_E15.0.txt", isDirectory: false)
     }
+
+    /// zenz のモデル (gguf)。データフォルダーの zenz/ か、Meltype.app の Resources/zenz/ に置いたものを使う。
+    static let zenzModelNames = ["zenz-v3.2-small-Q5_K_M.gguf", "zenz-v3.1-small-Q5_K_M.gguf", "ggml-model-Q5_K_M.gguf"]
+    private static func findZenzModel() -> URL? {
+        var directories: [URL] = []
+        if let data = NativeCore.shared.dataDirectory { directories.append(URL(fileURLWithPath: data, isDirectory: true).appendingPathComponent("zenz", isDirectory: true)) }
+        if let resources = Bundle.main.resourceURL { directories.append(resources.appendingPathComponent("zenz", isDirectory: true)) }
+        for directory in directories {
+            for name in zenzModelNames {
+                let url = directory.appendingPathComponent(name, isDirectory: false)
+                if FileManager.default.fileExists(atPath: url.path) { return url }
+            }
+        }
+        return nil
+    }
+
+    var usesZenzai: Bool { zenzModel != nil }
 
     private init() {
         // azooKey の学習データ・ユーザー辞書の置き場所。確定した変換を覚え、次から先に出す (macOS 標準の日本語入力と同じ)。
@@ -51,13 +70,27 @@ final class MeltypeConverter {
             specialCandidateProviders: KanaKanjiConverter.defaultSpecialCandidateProviders,
             metadata: .init(versionString: "Meltype \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown")")
         )
+        zenzModel = Self.findZenzModel()
+    }
+
+    /// キャレットの前の文 (Zenzai の文脈に使う) は最後の 20 文字まで。
+    private static func contextTail(_ context: String?) -> String? {
+        guard let context, !context.isEmpty else { return nil }
+        return String(context.suffix(20))
     }
 
     /// ひらがな全体に対する変換結果 (入力をすべて使ったものだけ、よい順)。
-    private func results(for hiragana: String) -> [Candidate] {
-        if let cached = resultCache[hiragana] { return cached }
+    /// Zenzai を使うときは、キャレットの前の文 (context) も文脈としてモデルに渡す (同じ読みでも前の文で変換が変わる)。
+    private func results(for hiragana: String, context: String? = nil) -> [Candidate] {
+        let tail = zenzModel == nil ? nil : Self.contextTail(context)
+        let key = tail.map { $0 + "\u{1}" + hiragana } ?? hiragana
+        if let cached = resultCache[key] { return cached }
         var composing = ComposingText()
         composing.insertAtCursorPosition(hiragana, inputStyle: .direct)
+        if let zenzModel {
+            options.zenzaiMode = .on(weight: zenzModel, inferenceLimit: 10, personalizationMode: nil,
+                                     versionDependentMode: .v3(.init(leftSideContext: tail, maxLeftSideContextLength: 20)))
+        }
         let results = converter.requestCandidates(composing, options: options)
         let count = hiragana.count
         // 入力 (ひらがな) をすべて使った候補だけ (.direct で入れたので、入力の文字数 = ひらがなの文字数)
@@ -67,15 +100,15 @@ final class MeltypeConverter {
             if cacheOrder.count >= 64 {
                 resultCache.removeValue(forKey: cacheOrder.removeFirst())
             }
-            resultCache[hiragana] = candidates
-            cacheOrder.append(hiragana)
+            resultCache[key] = candidates
+            cacheOrder.append(key)
         }
         return candidates
     }
 
     /// 文節に区切った変換結果 (読みをつなげると元のひらがなになる)。変換できなければ空。
     func clauses(for hiragana: String, context: String?) -> [(reading: String, text: String)] {
-        guard let best = results(for: hiragana).first else { return [] }
+        guard let best = results(for: hiragana, context: context).first else { return [] }
         var clauses: [(reading: String, text: String)] = []
         for element in best.data {
             let reading = element.ruby.applyingTransform(.hiraganaToKatakana, reverse: true) ?? element.ruby
