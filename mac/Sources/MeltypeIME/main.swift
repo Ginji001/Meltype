@@ -10,6 +10,16 @@ if CommandLine.arguments.contains("--version") {
     exit(0)
 }
 
+// 開発用: 変換エンジン (azooKey) だけの結果を見る。 Meltype --convert <ひらがな> [文脈]
+if let index = CommandLine.arguments.firstIndex(of: "--convert"), index + 1 < CommandLine.arguments.count {
+    NativeCore.shared.initialize()
+    let hiragana = CommandLine.arguments[index + 1]
+    let context = index + 2 < CommandLine.arguments.count ? CommandLine.arguments[index + 2] : nil
+    print("clauses:", MeltypeConverter.shared.clauses(for: hiragana, context: context).map { "\($0.reading)=\($0.text)" }.joined(separator: " | "))
+    print("candidates:", MeltypeConverter.shared.candidates(for: hiragana).prefix(8).joined(separator: " / "))
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--register-input-source") {
     exit(InputSourceRegistration.register() == 0 ? 0 : 1)
 }

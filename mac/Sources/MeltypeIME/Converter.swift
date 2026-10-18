@@ -52,6 +52,9 @@ final class MeltypeConverter {
 
     var usesZenzai: Bool { zenzModel != nil }
 
+    /// Zenzai が 1 回の変換で直しを試す回数の上限 (多いほど正確だが遅い)。開発用に MELTYPE_ZENZAI_LIMIT で変えられる。
+    static let zenzaiInferenceLimit = Int(ProcessInfo.processInfo.environment["MELTYPE_ZENZAI_LIMIT"] ?? "") ?? 10
+
     private init() {
         // azooKey の学習データ・ユーザー辞書の置き場所。確定した変換を覚え、次から先に出す (macOS 標準の日本語入力と同じ)。
         let directory = (NativeCore.shared.dataDirectory.map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -88,7 +91,7 @@ final class MeltypeConverter {
         var composing = ComposingText()
         composing.insertAtCursorPosition(hiragana, inputStyle: .direct)
         if let zenzModel {
-            options.zenzaiMode = .on(weight: zenzModel, inferenceLimit: 10, personalizationMode: nil,
+            options.zenzaiMode = .on(weight: zenzModel, inferenceLimit: Self.zenzaiInferenceLimit, personalizationMode: nil,
                                      versionDependentMode: .v3(.init(leftSideContext: tail, maxLeftSideContextLength: 20)))
         }
         let results = converter.requestCandidates(composing, options: options)
